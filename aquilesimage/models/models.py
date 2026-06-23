@@ -390,9 +390,19 @@ class RetrieveVideoContentParams(BaseModel):
 class CreateVideoBody(BaseModel):
     model: str = Field(default="sora-2", description="Model to use to generate the video")
     prompt: str = Field(..., description="Prompt of the video to be generated")
-    size: Literal['1024x1792', '1280x720', '1792x1024', '720x1280'] | None = Field(None, description="Video size, e.g., '1024x1808'")
+    size: str | None = Field(None, description="Video size, e.g., '640x384'")
     seconds: str | None = Field(None, description="Video duration in seconds")
     quality: VideoQuality | None = Field(VideoQuality.standard, description="Video quality")
+
+    @field_validator('size')
+    @classmethod
+    def validate_size(cls, v):
+        if v is None:
+            return v
+        import re
+        if not re.match(r'^\d+x\d+$', v):
+            raise ValueError(f"Invalid size format: '{v}'. Must be in format WxH (e.g., '640x384').")
+        return v
 
 class VideoResource(BaseModel):
     id: str = Field(..., description="Unique identifier for the video")
@@ -401,7 +411,7 @@ class VideoResource(BaseModel):
     status: VideoStatus = Field(..., description="Current status of the video job")
     progress: int | None = Field(None, ge=0, le=100, description="Video generation progress (0-100)")
     created_at: int = Field(..., description="Unix timestamp of creation")
-    size: Literal['1024x1792', '1280x720', '1792x1024', '720x1280'] | None = Field(None, description="Video dimensions")
+    size: str | None = Field(None, description="Video dimensions, e.g., '640x384'")
     seconds: str | None = Field(None, description="Video duration in seconds")
     quality: VideoQuality | None = Field(None, description="Video quality")
     error: dict | None = Field(None, description="Error information if the job failed")
