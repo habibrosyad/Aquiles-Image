@@ -49,7 +49,7 @@ class LTX_2_Pipeline:
             self.pipeline = TI2VidTwoStagesHQPipeline(
                 checkpoint_path=checkpoint_path,
                 gemma_root=f"{data_dir}/gemma", 
-                loras=[], 
+                loras=(),
                 distilled_lora=[
                     LoraPathStrengthAndSDOps(
                         path=distilled_lora, 
@@ -57,6 +57,8 @@ class LTX_2_Pipeline:
                         sd_ops=LTXV_LORA_COMFY_RENAMING_MAP
                     )
                 ], 
+                distilled_lora_strength_stage_1=0.6,
+                distilled_lora_strength_stage_2=0.6,
                 spatial_upsampler_path=spatial_upsampler_path
             )
 
