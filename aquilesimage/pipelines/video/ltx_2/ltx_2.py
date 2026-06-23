@@ -1,7 +1,7 @@
 from aquilesimage.utils.utils_video import get_path_file_video_model, file_exists, download_ltx_2, download_ltx_2_3
 from typing import Literal
 try:
-    from ltx_pipelines.ti2vid_two_stages_hq import TI2VidTwoStagesHQPipeline
+    from ltx_pipelines.ti2vid_two_stages import TI2VidTwoStagesPipeline
     from ltx_pipelines.utils.media_io import encode_video
     from ltx_core.model.video_vae import TilingConfig, get_video_chunks_number
     from ltx_core.loader import LoraPathStrengthAndSDOps, LTXV_LORA_COMFY_RENAMING_MAP
@@ -17,7 +17,7 @@ class LTX_2_Pipeline:
     FRAME_RATE = 25.0
 
     def __init__(self, model_name: Literal["ltx-2", "ltx-2.3"] = "ltx-2"):
-        self.pipeline: TI2VidTwoStagesHQPipeline | None = None
+        self.pipeline: TI2VidTwoStagesPipeline | None = None
         self.model_name = model_name
         self.verify_model()
 
@@ -46,10 +46,10 @@ class LTX_2_Pipeline:
             raise ValueError("Model not available")
 
         with torch.no_grad():
-            self.pipeline = TI2VidTwoStagesHQPipeline(
+            self.pipeline = TI2VidTwoStagesPipeline(
                 checkpoint_path=checkpoint_path,
                 gemma_root=f"{data_dir}/gemma", 
-                loras=(),
+                loras=[], 
                 distilled_lora=[
                     LoraPathStrengthAndSDOps(
                         path=distilled_lora, 
@@ -57,8 +57,6 @@ class LTX_2_Pipeline:
                         sd_ops=LTXV_LORA_COMFY_RENAMING_MAP
                     )
                 ], 
-                distilled_lora_strength_stage_1=0.6,
-                distilled_lora_strength_stage_2=0.6,
                 spatial_upsampler_path=spatial_upsampler_path
             )
 
