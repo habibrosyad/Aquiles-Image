@@ -31,22 +31,6 @@ class LTX_2_Pipeline:
     def _align_resolution(h: int, w: int, alignment: int = 32) -> tuple[int, int]:
         return (h // alignment) * alignment, (w // alignment) * alignment
 
-    @staticmethod
-    def _normalize_images(image, num_frames: int) -> list:
-        if image is None:
-            return []
-        if isinstance(image, list):
-            if len(image) == 0:
-                return []
-            if isinstance(image[0], (list, tuple)):
-                return [ImageConditioningInput(img, pos, str_) for img, pos, str_ in image]
-            if len(image) == 1:
-                return [ImageConditioningInput(image[0], 0, 1.0)]
-            n = len(image)
-            positions = [int(i * (num_frames - 1) / (n - 1)) for i in range(n)]
-            return [ImageConditioningInput(img, pos, 1.0) for img, pos in zip(image, positions)]
-        return [ImageConditioningInput(image, 0, 1.0)]
-
     def start(self):
         data_dir = get_path_file_video_model(self.model_name)
 
@@ -88,8 +72,6 @@ class LTX_2_Pipeline:
                 tiling_config = TilingConfig.default()
                 video_chunks_number = get_video_chunks_number(num_frames, tiling_config)
 
-                images_list = self._normalize_images(image, num_frames)
-
                 video, audio = self.pipeline(
                     prompt=prompt,
                     negative_prompt=negative_prompt,
@@ -99,7 +81,7 @@ class LTX_2_Pipeline:
                     num_frames=num_frames,
                     frame_rate=self.FRAME_RATE,
                     num_inference_steps=num_inference_steps,
-                    images=images_list,
+                    images=[ImageConditioningInput(image, 0, 1.0)] if image is not None else [],
                     video_guider_params=MultiModalGuiderParams(
                         cfg_scale=3.0,
                         stg_scale=1.0,
