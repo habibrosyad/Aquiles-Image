@@ -83,7 +83,7 @@ class LTX_2_Pipeline:
                 spatial_upsampler_path=spatial_upsampler_path
             )
 
-    def generate(self, seed: int, prompt: str, save_result_path: str, negative_prompt: str, image=None, seconds=None, height=1088, width=1920, num_inference_steps=25, use_gradient_estimation=True, ge_gamma=2.0):
+    def generate(self, seed: int, prompt: str, save_result_path: str, negative_prompt: str, image=None, seconds=None, height=1088, width=1920, num_inference_steps=40, use_gradient_estimation=True, ge_gamma=2.0):
         try:
             import os
             output_dir = os.path.dirname(save_result_path)
@@ -132,11 +132,11 @@ class LTX_2_Pipeline:
                         v_context=v_ctx_p,
                         a_context=a_ctx_p,
                         video_guider_factory=create_multimodal_guider_factory(
-                            params=MultiModalGuiderParams(cfg_scale=3.0, stg_scale=1.0, rescale_scale=0.7, modality_scale=1.0, skip_step=0, stg_blocks=[29]),
+                            params=MultiModalGuiderParams(cfg_scale=3.0, stg_scale=1.0, rescale_scale=0.7, modality_scale=3.0, skip_step=0, stg_blocks=[29]),
                             negative_context=v_ctx_n,
                         ),
                         audio_guider_factory=create_multimodal_guider_factory(
-                            params=MultiModalGuiderParams(cfg_scale=7.0, stg_scale=1.0, rescale_scale=0.7, modality_scale=1.0, skip_step=0, stg_blocks=[29]),
+                            params=MultiModalGuiderParams(cfg_scale=7.0, stg_scale=1.0, rescale_scale=0.7, modality_scale=3.0, skip_step=0, stg_blocks=[29]),
                             negative_context=a_ctx_n,
                         ),
                     ),
