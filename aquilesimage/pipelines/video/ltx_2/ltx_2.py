@@ -12,7 +12,7 @@ try:
     from ltx_pipelines.utils.denoisers import FactoryGuidedDenoiser, SimpleDenoiser
     from ltx_pipelines.utils.helpers import combined_image_conditionings, assert_resolution
     from ltx_pipelines.utils.samplers import euler_denoising_loop, gradient_estimating_euler_denoising_loop
-    from ltx_core.model.transformer.step import EulerDiffusionStep
+    from ltx_core.components.diffusion_steps import EulerDiffusionStep
 except ImportError as e:
     print("Error importing components for LTX-2")
     pass
