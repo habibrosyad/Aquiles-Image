@@ -35,6 +35,10 @@ class LTX_2_Pipeline:
         return 8 * k + 1
 
     @staticmethod
+    def _align_resolution(h: int, w: int, alignment: int = 32) -> tuple[int, int]:
+        return (h // alignment) * alignment, (w // alignment) * alignment
+
+    @staticmethod
     def _normalize_images(image, num_frames: int) -> list:
         if image is None:
             return []
@@ -86,6 +90,7 @@ class LTX_2_Pipeline:
             if output_dir:
                 os.makedirs(output_dir, exist_ok=True)
             with torch.no_grad():
+                height, width = self._align_resolution(height, width, 32)
                 num_frames = self._compute_num_frames(seconds) if seconds is not None else 193
                 tiling_config = TilingConfig.default()
                 video_chunks_number = get_video_chunks_number(num_frames, tiling_config)
@@ -106,7 +111,8 @@ class LTX_2_Pipeline:
                 v_ctx_p, a_ctx_p = ctx_p.video_encoding, ctx_p.audio_encoding
                 v_ctx_n, a_ctx_n = ctx_n.video_encoding, ctx_n.audio_encoding
 
-                stage_1_half = type("s", (), {"height": height // 2, "width": width // 2})()
+                h2, w2 = self._align_resolution(height // 2, width // 2, 16)
+                stage_1_half = type("s", (), {"height": h2, "width": w2})()
                 stage_1_cond = p.image_conditioner(
                     lambda enc: combined_image_conditionings(
                         images=images_list,
