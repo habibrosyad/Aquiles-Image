@@ -601,7 +601,7 @@ def _require_video_model():
           dependencies=[Depends(verify_api_key)], tags=["Video APIs"])
 async def create_video(request: Request):
     content_type = request.headers.get("content-type", "")
-    MODELS_WITH_IMAGE = [VideoModels.LTX_2]
+    MODELS_WITH_IMAGE = [VideoModels.LTX_2, VideoModels.LTX_2_3]
     pil_image = None
 
     if "multipart/form-data" in content_type:
@@ -611,13 +611,29 @@ async def create_video(request: Request):
             size=form.get("size"), seconds=form.get("seconds"),
             quality=form.get("quality", VideoQuality.standard),
         )
-        ref = form.get("input_reference")
-        if ref is not None:
+        refs = form.getlist("input_reference")
+        if refs:
             if input_r.model not in MODELS_WITH_IMAGE:
                 raise HTTPException(400, f"'{input_r.model}' does not support input_reference.")
-            if ref.content_type not in ("image/jpeg", "image/png", "image/webp"):
-                raise HTTPException(400, "Unsupported image format.")
-            pil_image = PILImage.open(io.BytesIO(await ref.read()))
+            positions_raw = form.get("input_reference_positions")
+            strengths_raw = form.get("input_reference_strengths")
+            has_explicit = positions_raw is not None or strengths_raw is not None
+            images = []
+            for i, ref in enumerate(refs):
+                if ref.content_type not in ("image/jpeg", "image/png", "image/webp"):
+                    raise HTTPException(400, f"Unsupported image format for reference {i}: {ref.content_type}")
+                images.append(PILImage.open(io.BytesIO(await ref.read())))
+            if has_explicit:
+                positions = [int(p.strip()) for p in positions_raw.split(",")] if positions_raw else None
+                strengths = [float(s.strip()) for s in strengths_raw.split(",")] if strengths_raw else None
+                images_with_params = []
+                for i, img in enumerate(images):
+                    pos = positions[i] if positions and i < len(positions) else 0
+                    str_ = strengths[i] if strengths and i < len(strengths) else 1.0
+                    images_with_params.append((img, pos, str_))
+                pil_image = images_with_params
+            else:
+                pil_image = images if len(images) > 1 else images[0]
     else:
         input_r = CreateVideoBody(**(await request.json()))
 

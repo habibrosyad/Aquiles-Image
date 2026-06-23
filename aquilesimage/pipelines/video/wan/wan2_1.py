@@ -88,6 +88,13 @@ class Wan2_1_Pipeline:
             )
 
 
+    def generate(self, seed, prompt, save_result_path, negative_prompt, height=None, width=None, **kwargs):
+        if height is not None:
+            self.pipeline.target_height = height
+        if width is not None:
+            self.pipeline.target_width = width
+        self.pipeline.generate(seed=seed, prompt=prompt, save_result_path=save_result_path, negative_prompt=negative_prompt)
+
     def start_turbo(self, name: Literal["wan2.1-turbo", "wan2.1-turbo-fp8"]):
         if name == "wan2.1-turbo":
             model_path = get_path_file_video_model("wan2.1-turbo")

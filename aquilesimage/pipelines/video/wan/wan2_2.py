@@ -40,6 +40,13 @@ class Wan2_2_Pipeline:
         else:
             raise Exception("No CUDA device available")
 
+    def generate(self, seed, prompt, save_result_path, negative_prompt, height=None, width=None, **kwargs):
+        if height is not None:
+            self.pipeline.target_height = height
+        if width is not None:
+            self.pipeline.target_width = width
+        self.pipeline.generate(seed=seed, prompt=prompt, save_result_path=save_result_path, negative_prompt=negative_prompt)
+
     def verify_model(self):
         model_path = get_path_file_video_model("wan2.2")
 
@@ -99,6 +106,13 @@ class Wan2_2_Turbo_Pipeline:
             )
         else:
             raise Exception("No CUDA device available")
+
+    def generate(self, seed, prompt, save_result_path, negative_prompt, height=None, width=None, **kwargs):
+        if height is not None:
+            self.pipeline.target_height = height
+        if width is not None:
+            self.pipeline.target_width = width
+        self.pipeline.generate(seed=seed, prompt=prompt, save_result_path=save_result_path, negative_prompt=negative_prompt)
 
     def verify_model(self):
         model_path = get_path_file_video_model("wan2.2-turbo")

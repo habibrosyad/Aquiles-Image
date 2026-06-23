@@ -198,6 +198,15 @@ class VideoTaskGeneration:
 
         if task.seconds is not None and task.model in ["ltx-2", "ltx-2.3"]:
             kwargs["seconds"] = task.seconds
+
+        if task.size:
+            parts = task.size.split("x")
+            if len(parts) == 2:
+                try:
+                    kwargs["width"] = int(parts[0])
+                    kwargs["height"] = int(parts[1])
+                except ValueError:
+                    pass
         
         await run_in_threadpool(self.pipeline.generate, **kwargs)
 

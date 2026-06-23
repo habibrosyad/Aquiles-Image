@@ -15,6 +15,13 @@ class HunyuanVideo_Pipeline:
         self.model_name = model_name
         self.verify_model()
 
+    def generate(self, seed, prompt, save_result_path, negative_prompt, height=None, width=None, **kwargs):
+        if height is not None:
+            self.pipeline.target_height = height
+        if width is not None:
+            self.pipeline.target_width = width
+        self.pipeline.generate(seed=seed, prompt=prompt, save_result_path=save_result_path, negative_prompt=negative_prompt)
+
     def start(self):
         if torch.cuda.is_available():
             if self.model_name in ["hunyuanVideo-1.5-480p-fp8", "hunyuanVideo-1.5-720p-fp8"]:
