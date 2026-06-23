@@ -23,7 +23,14 @@ class VideoTask:
     error: Optional[dict] = None
     video_path: Optional[str] = None
     image: Optional[Any] = None
-    
+    negative_prompt: Optional[str] = None
+    seed: Optional[int] = None
+    num_inference_steps: Optional[int] = None
+    guidance_scale: Optional[float] = None
+    enhance_prompt: Optional[bool] = None
+    image_strength: Optional[float] = None
+    image_frame_idx: Optional[int] = None
+
     def to_video_resource(self) -> VideoResource:
         return VideoResource(
             id=self.id,
@@ -69,13 +76,13 @@ class VideoTaskGeneration:
         while True:
             try:
                 async with self.lock:
-                    if (len(self.active_tasks) < self.max_concurrent_tasks 
+                    if (len(self.active_tasks) < self.max_concurrent_tasks
                         and len(self.queue) > 0):
                         task_id = self.queue.popleft()
                         self.active_tasks.add(task_id)
 
                         asyncio.create_task(self._process_task(task_id))
-                await asyncio.sleep(1)       
+                await asyncio.sleep(1)
             except asyncio.CancelledError:
                 break
             except Exception as e:
@@ -89,17 +96,16 @@ class VideoTaskGeneration:
         try:
             task.status = VideoStatus.processing
             task.progress = 0
-            
-            # Simulate progress
+
             for progress in range(0, 91, 10):
                 task.progress = progress
                 await asyncio.sleep(0.5)
-            
+
             video_output = await self._generate_video(task)
-            
+
             task.status = VideoStatus.completed
             task.progress = 100
-            
+
         except Exception as e:
             task.status = VideoStatus.failed
             task.progress = 0
@@ -137,9 +143,16 @@ class VideoTaskGeneration:
                 seconds=request.seconds,
                 quality=request.quality or VideoQuality.standard,
                 video_path=get_path_save_video(task_id),
-                image=image if image is not None else None
+                image=image if image is not None else None,
+                negative_prompt=request.negative_prompt,
+                seed=request.seed,
+                num_inference_steps=request.num_inference_steps,
+                guidance_scale=request.guidance_scale,
+                enhance_prompt=request.enhance_prompt,
+                image_strength=request.image_strength,
+                image_frame_idx=request.image_frame_idx,
             )
-            
+
             self.tasks[task_id] = task
 
             if len(self.active_tasks) < self.max_concurrent_tasks:
@@ -154,7 +167,7 @@ class VideoTaskGeneration:
                     )
 
                 self.queue.append(task_id)
-            
+
             return task.to_video_resource()
 
     async def list_tasks(
@@ -187,11 +200,12 @@ class VideoTaskGeneration:
 
     async def _generate_video(self, task: VideoTask) -> Any:
         kwargs = dict(
-            seed=random.randint(1, 1000),
             prompt=task.prompt,
             save_result_path=task.video_path,
-            negative_prompt="No deformities",
         )
+
+        kwargs["seed"] = task.seed if task.seed is not None else random.randint(1, 1000)
+        kwargs["negative_prompt"] = task.negative_prompt if task.negative_prompt is not None else "No deformities"
 
         if task.image is not None:
             kwargs["image"] = task.image
@@ -207,7 +221,18 @@ class VideoTaskGeneration:
                     kwargs["height"] = int(parts[1])
                 except ValueError:
                     pass
-        
+
+        if task.num_inference_steps is not None:
+            kwargs["num_inference_steps"] = task.num_inference_steps
+        if task.guidance_scale is not None:
+            kwargs["video_cfg_scale"] = task.guidance_scale
+        if task.enhance_prompt is not None:
+            kwargs["enhance_prompt"] = task.enhance_prompt
+        if task.image_strength is not None:
+            kwargs["image_strength"] = task.image_strength
+        if task.image_frame_idx is not None:
+            kwargs["image_frame_idx"] = task.image_frame_idx
+
         await run_in_threadpool(self.pipeline.generate, **kwargs)
 
     async def get_stats(self) -> dict:

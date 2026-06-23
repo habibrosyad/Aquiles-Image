@@ -393,6 +393,13 @@ class CreateVideoBody(BaseModel):
     size: str | None = Field(None, description="Video size, e.g., '640x384'")
     seconds: str | None = Field(None, description="Video duration in seconds")
     quality: VideoQuality | None = Field(VideoQuality.standard, description="Video quality")
+    negative_prompt: str | None = Field(None, description="Negative prompt to avoid unwanted content")
+    seed: int | None = Field(None, ge=0, description="Random seed for reproducible generation")
+    num_inference_steps: int | None = Field(None, ge=1, description="Number of denoising steps (more = higher quality, slower)")
+    guidance_scale: float | None = Field(None, ge=1.0, description="CFG scale for video prompt adherence (1.0 = no guidance)")
+    enhance_prompt: bool | None = Field(None, description="Enable Gemma-based prompt enhancement")
+    image_strength: float | None = Field(None, ge=0.0, le=1.0, description="Image conditioning strength for image-to-video (0-1)")
+    image_frame_idx: int | None = Field(None, ge=0, description="Frame index for image conditioning")
 
     @field_validator('size')
     @classmethod
