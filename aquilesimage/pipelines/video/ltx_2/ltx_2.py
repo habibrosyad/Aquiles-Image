@@ -116,11 +116,8 @@ class LTX_2_Pipeline:
             tiling_config = TilingConfig(spatial_config=spatial, temporal_config=temporal) if spatial or temporal else TilingConfig.default()
             video_chunks_number = get_video_chunks_number(num_frames, tiling_config)
 
-            stage_1_sigmas_tensor = torch.tensor(stage_1_sigmas, dtype=torch.float32) if stage_1_sigmas is not None else None
-            stage_2_sigmas_tensor = torch.tensor(stage_2_sigmas, dtype=torch.float32) if stage_2_sigmas is not None else None
-
             with torch.no_grad():
-                video, audio = self.pipeline(
+                pipeline_kwargs = dict(
                     prompt=prompt,
                     negative_prompt=negative_prompt,
                     seed=seed,
@@ -149,9 +146,12 @@ class LTX_2_Pipeline:
                     enhance_prompt=enhance_prompt,
                     tiling_config=tiling_config,
                     max_batch_size=max_batch_size,
-                    stage_1_sigmas=stage_1_sigmas_tensor,
-                    stage_2_sigmas=stage_2_sigmas_tensor,
                 )
+                if stage_1_sigmas is not None:
+                    pipeline_kwargs["stage_1_sigmas"] = torch.tensor(stage_1_sigmas, dtype=torch.float32)
+                if stage_2_sigmas is not None:
+                    pipeline_kwargs["stage_2_sigmas"] = torch.tensor(stage_2_sigmas, dtype=torch.float32)
+                video, audio = self.pipeline(**pipeline_kwargs)
 
                 encode_video(
                     video=video,
