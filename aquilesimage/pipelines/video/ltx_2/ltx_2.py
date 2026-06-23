@@ -5,18 +5,11 @@ try:
     from ltx_pipelines.utils.media_io import encode_video
     from ltx_core.model.video_vae import TilingConfig, get_video_chunks_number
     from ltx_core.loader import LoraPathStrengthAndSDOps, LTXV_LORA_COMFY_RENAMING_MAP
-    from ltx_core.components.guiders import MultiModalGuiderParams, create_multimodal_guider_factory
-    from ltx_core.components.noisers import GaussianNoiser
+    from ltx_core.components.guiders import MultiModalGuiderParams
     from ltx_pipelines.utils.args import ImageConditioningInput
-    from ltx_pipelines.utils.types import ModalitySpec
-    from ltx_pipelines.utils.denoisers import FactoryGuidedDenoiser, SimpleDenoiser
-    from ltx_pipelines.utils.helpers import combined_image_conditionings, assert_resolution
-    from ltx_pipelines.utils.samplers import euler_denoising_loop, gradient_estimating_euler_denoising_loop
-    from ltx_core.components.diffusion_steps import EulerDiffusionStep
 except ImportError as e:
     print("Error importing components for LTX-2")
     pass
-from PIL import Image
 import torch
 import gc
 
@@ -83,7 +76,7 @@ class LTX_2_Pipeline:
                 spatial_upsampler_path=spatial_upsampler_path
             )
 
-    def generate(self, seed: int, prompt: str, save_result_path: str, negative_prompt: str, image=None, seconds=None, height=1088, width=1920, num_inference_steps=40, use_gradient_estimation=True, ge_gamma=2.0):
+    def generate(self, seed: int, prompt: str, save_result_path: str, negative_prompt: str, image=None, seconds=None, height=1088, width=1920, num_inference_steps=40):
         try:
             import os
             output_dir = os.path.dirname(save_result_path)
@@ -94,112 +87,43 @@ class LTX_2_Pipeline:
                 num_frames = self._compute_num_frames(seconds) if seconds is not None else 193
                 tiling_config = TilingConfig.default()
                 video_chunks_number = get_video_chunks_number(num_frames, tiling_config)
-                dtype = torch.bfloat16
 
                 images_list = self._normalize_images(image, num_frames)
-                p = self.pipeline
 
-                gen = torch.Generator(device=p.device).manual_seed(seed)
-                noiser = GaussianNoiser(generator=gen)
-
-                ctx_p, ctx_n = p.prompt_encoder(
-                    [prompt, negative_prompt],
-                    enhance_first_prompt=False,
-                    enhance_prompt_image=images_list[0][0] if len(images_list) > 0 else None,
-                    enhance_prompt_seed=seed,
-                )
-                v_ctx_p, a_ctx_p = ctx_p.video_encoding, ctx_p.audio_encoding
-                v_ctx_n, a_ctx_n = ctx_n.video_encoding, ctx_n.audio_encoding
-
-                h2, w2 = self._align_resolution(height // 2, width // 2, 16)
-                stage_1_half = type("s", (), {"height": h2, "width": w2})()
-                stage_1_cond = p.image_conditioner(
-                    lambda enc: combined_image_conditionings(
-                        images=images_list,
-                        height=stage_1_half.height,
-                        width=stage_1_half.width,
-                        video_encoder=enc,
-                        dtype=dtype,
-                        device=p.device,
-                    )
-                )
-
-                sigmas = p._scheduler.execute(steps=num_inference_steps).to(dtype=torch.float32, device=p.device)
-                loop_fn = gradient_estimating_euler_denoising_loop if use_gradient_estimation else euler_denoising_loop
-
-                video_state, audio_state = p.stage_1(
-                    denoiser=FactoryGuidedDenoiser(
-                        v_context=v_ctx_p,
-                        a_context=a_ctx_p,
-                        video_guider_factory=create_multimodal_guider_factory(
-                            params=MultiModalGuiderParams(cfg_scale=3.0, stg_scale=1.0, rescale_scale=0.7, modality_scale=3.0, skip_step=0, stg_blocks=[29]),
-                            negative_context=v_ctx_n,
-                        ),
-                        audio_guider_factory=create_multimodal_guider_factory(
-                            params=MultiModalGuiderParams(cfg_scale=7.0, stg_scale=1.0, rescale_scale=0.7, modality_scale=3.0, skip_step=0, stg_blocks=[29]),
-                            negative_context=a_ctx_n,
-                        ),
-                    ),
-                    sigmas=sigmas,
-                    noiser=noiser,
-                    width=stage_1_half.width,
-                    height=stage_1_half.height,
-                    frames=num_frames,
-                    fps=self.FRAME_RATE,
-                    video=ModalitySpec(context=v_ctx_p, conditionings=stage_1_cond),
-                    audio=ModalitySpec(context=a_ctx_p),
-                    loop=loop_fn,
-                    stepper=EulerDiffusionStep(),
-                    max_batch_size=1,
-                )
-
-                upscaled_video = p.upsampler(video_state.latent[:1])
-
-                stage_2_cond = p.image_conditioner(
-                    lambda enc: combined_image_conditionings(
-                        images=images_list,
-                        height=height,
-                        width=width,
-                        video_encoder=enc,
-                        dtype=dtype,
-                        device=p.device,
-                    )
-                )
-
-                from ltx_pipelines.utils.constants import STAGE_2_DISTILLED_SIGMAS
-                stage_2_sigmas = STAGE_2_DISTILLED_SIGMAS.to(dtype=torch.float32, device=p.device)
-
-                video_state, audio_state = p.stage_2(
-                    denoiser=SimpleDenoiser(v_context=v_ctx_p, a_context=a_ctx_p),
-                    sigmas=stage_2_sigmas,
-                    noiser=noiser,
-                    width=width,
+                video, audio = self.pipeline(
+                    prompt=prompt,
+                    negative_prompt=negative_prompt,
+                    seed=seed,
                     height=height,
-                    frames=num_frames,
-                    fps=self.FRAME_RATE,
-                    video=ModalitySpec(
-                        context=v_ctx_p,
-                        conditionings=stage_2_cond,
-                        noise_scale=stage_2_sigmas[0].item(),
-                        initial_latent=upscaled_video,
+                    width=width,
+                    num_frames=num_frames,
+                    frame_rate=self.FRAME_RATE,
+                    num_inference_steps=num_inference_steps,
+                    images=images_list,
+                    video_guider_params=MultiModalGuiderParams(
+                        cfg_scale=3.0,
+                        stg_scale=1.0,
+                        rescale_scale=0.7,
+                        modality_scale=3.0,
+                        skip_step=0,
+                        stg_blocks=[29],
                     ),
-                    audio=ModalitySpec(
-                        context=a_ctx_p,
-                        noise_scale=stage_2_sigmas[0].item(),
-                        initial_latent=audio_state.latent,
+                    audio_guider_params=MultiModalGuiderParams(
+                        cfg_scale=7.0,
+                        stg_scale=1.0,
+                        rescale_scale=0.7,
+                        modality_scale=3.0,
+                        skip_step=0,
+                        stg_blocks=[29],
                     ),
-                    loop=euler_denoising_loop,
-                    stepper=EulerDiffusionStep(),
-                    max_batch_size=1,
+                    enhance_prompt=False,
+                    tiling_config=tiling_config,
                 )
-
-                decoded_video = p.video_decoder(video_state.latent, tiling_config, gen)
-                decoded_audio = p.audio_decoder(audio_state.latent)
 
                 encode_video(
-                    video=decoded_video,
+                    video=video,
                     fps=self.FRAME_RATE,
-                    audio=decoded_audio,
+                    audio=audio,
                     output_path=save_result_path,
                     video_chunks_number=video_chunks_number,
                 )
